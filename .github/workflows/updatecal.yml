@@ -8,12 +8,13 @@ on:
 jobs:
   update-calendar:
     runs-on: ubuntu-latest
-    env:
-      TZ: Asia/Shanghai  # 设置时区
-
+    permissions:  # 关键配置：显式声明写入权限
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false  # 禁用默认凭证
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -28,11 +29,11 @@ jobs:
 
       - name: Commit and push changes
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}  # 使用个人访问令牌（PAT）
         run: |
-          git config --global user.name "GitHub Actions Bot"
+          git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git add .
           git commit -m "Auto-Update: $(date +'%Y-%m-%d %H:%M')" --allow-empty
-          git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${{ github.repository }}.git"
-          git push origin main:main
+          git remote set-url origin "https://anduony:$GH_PAT@github.com/anduony/anduony.github.io.git"
+          git push origin main
