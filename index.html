@@ -279,67 +279,135 @@
                 
                 let ipAddress = '未知';
                 let country = '未知';
+                let countryCode = '未知';
                 let region = '未知';
                 let city = '未知';
+                let district = '未知';
+                let zipCode = '未知';
+                let isp = '未知';
+                let org = '未知';
                 let latitude = null;
                 let longitude = null;
                 let timezone = '未知';
                 
-                const ipServices = [
-                    'https://api.ipify.org?format=json',
-                    'https://icanhazip.com',
-                    'https://ifconfig.me/json'
-                ];
-                
                 const geoServices = [
-                    (ip) => `https://ip-api.com/json/${ip}`,
-                    (ip) => `https://geolocation-db.com/json/${ip}`,
-                    (ip) => `https://freegeoip.app/json/${ip}`
+                    async () => {
+                        const response = await fetch('https://freegeoip.app/json/', { timeout: 8000 });
+                        const data = await response.json();
+                        return {
+                            ip: data.ip,
+                            country: data.country_name,
+                            countryCode: data.country_code,
+                            region: data.region_name,
+                            city: data.city,
+                            zipCode: data.zip_code,
+                            isp: data.isp,
+                            org: data.org,
+                            latitude: data.latitude,
+                            longitude: data.longitude,
+                            timezone: data.time_zone
+                        };
+                    },
+                    async () => {
+                        const response = await fetch('https://api.ipify.org?format=json', { timeout: 5000 });
+                        const ipData = await response.json();
+                        const ip = ipData.ip;
+                        
+                        const geoResponse = await fetch(`https://ip-api.com/json/${ip}?fields=status,message,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,isp,org,as`, { timeout: 5000 });
+                        const geoData = await geoResponse.json();
+                        if (geoData.status !== 'success') throw new Error('IP-API failed');
+                        return {
+                            ip: ip,
+                            country: geoData.country,
+                            countryCode: geoData.countryCode,
+                            region: geoData.regionName,
+                            city: geoData.city,
+                            district: geoData.district,
+                            zipCode: geoData.zip,
+                            isp: geoData.isp,
+                            org: geoData.org,
+                            latitude: geoData.lat,
+                            longitude: geoData.lon,
+                            timezone: geoData.timezone
+                        };
+                    },
+                    async () => {
+                        const response = await fetch('https://api.ipapi.is/?lang=zh-CN', { timeout: 8000 });
+                        const data = await response.json();
+                        return {
+                            ip: data.ip,
+                            country: data.country_name,
+                            countryCode: data.country_code,
+                            region: data.region_name,
+                            city: data.city,
+                            latitude: data.latitude,
+                            longitude: data.longitude,
+                            timezone: data.timezone,
+                            isp: data.isp,
+                            org: data.org
+                        };
+                    },
+                    async () => {
+                        const response = await fetch('https://api.sypexgeo.net/json/', { timeout: 5000 });
+                        const data = await response.json();
+                        const countryNames = {
+                            'Китай': '中国', 'Сычуань': '四川', 'Чэнду': '成都',
+                            'Россия': '俄罗斯', 'США': '美国', 'Япония': '日本',
+                            'Корея': '韩国', 'Вьетнам': '越南', 'Индия': '印度',
+                            'Германия': '德国', 'Франция': '法国', 'Великобритания': '英国'
+                        };
+                        return {
+                            ip: data.ip,
+                            country: countryNames[data.country.name_ru] || data.country.name_en || data.country.name_ru,
+                            countryCode: data.country.code,
+                            region: countryNames[data.region.name_ru] || data.region.name_en || data.region.name_ru,
+                            city: countryNames[data.city.name_ru] || data.city.name_en || data.city.name_ru,
+                            latitude: data.city.lat,
+                            longitude: data.city.lon,
+                            timezone: data.city.timezone
+                        };
+                    }
                 ];
                 
-                for (const service of ipServices) {
+                for (const getGeoData of geoServices) {
                     try {
-                        const response = await fetch(service, { timeout: 5000 });
-                        if (service.includes('icanhazip')) {
-                            ipAddress = await response.text();
-                            ipAddress = ipAddress.trim();
-                        } else {
-                            const data = await response.json();
-                            ipAddress = data.ip || data.IP || '未知';
+                        const result = await getGeoData();
+                        
+                        if (result.ip) ipAddress = result.ip;
+                        if (result.country) country = result.country;
+                        if (result.countryCode) countryCode = result.countryCode;
+                        if (result.region) region = result.region;
+                        if (result.city) city = result.city;
+                        if (result.district) district = result.district;
+                        if (result.zipCode) zipCode = result.zipCode;
+                        if (result.isp) isp = result.isp;
+                        if (result.org) org = result.org;
+                        if (result.latitude) latitude = parseFloat(result.latitude);
+                        if (result.longitude) longitude = parseFloat(result.longitude);
+                        if (result.timezone) timezone = result.timezone;
+                        
+                        if (country && country !== 'undefined' && country !== 'null' && country !== '未知') {
+                            console.log('Successfully got geo data:', result);
+                            break;
                         }
-                        if (ipAddress && ipAddress !== '未知') break;
                     } catch (e) {
-                        console.warn('IP service failed:', service, e);
+                        console.warn('Geo service failed:', e.message);
                     }
                 }
-                console.log('IP Address:', ipAddress);
                 
-                if (ipAddress && ipAddress !== '未知') {
-                    for (const getGeoUrl of geoServices) {
-                        try {
-                            const geoResponse = await fetch(getGeoUrl(ipAddress), { timeout: 5000 });
-                            const geoData = await geoResponse.json();
-                            
-                            country = geoData.country || geoData.country_name || geoData.Country || '未知';
-                            region = geoData.regionName || geoData.region || geoData.Region || '未知';
-                            city = geoData.city || geoData.City || '未知';
-                            latitude = geoData.lat || geoData.Latitude || null;
-                            longitude = geoData.lon || geoData.Longitude || null;
-                            timezone = geoData.timezone || geoData.Timezone || '未知';
-                            
-                            if (country !== '未知') break;
-                        } catch (e) {
-                            console.warn('Geo service failed:', e);
-                        }
-                    }
-                }
+                console.log('IP Address:', ipAddress);
                 console.log('Location:', country, region, city);
                 
                 const visitData = {
                     ip_address: ipAddress,
                     country: country,
+                    country_code: countryCode,
                     region: region,
                     city: city,
+                    district: district,
+                    zip_code: zipCode,
+                    isp: isp,
+                    org: org,
                     latitude: latitude,
                     longitude: longitude,
                     timezone: timezone,
