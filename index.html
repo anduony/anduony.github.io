@@ -262,11 +262,53 @@
         <p>Edit By Anthony</p>
     </footer>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
     <script>
+        const supabaseUrl = 'https://vgkdvfljaelcitjxbtbw.supabase.co';
+        const supabaseKey = 'sb_publishable_Bz4_X6FTTJs1efL4zGlAWw_pLA4mDEu';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
         const icalLink = 'https://anduony.github.io/calendars/latest_calendar.ics';
         const linkDisplay = document.getElementById('icalLinkDisplay');
         
         linkDisplay.textContent = icalLink;
+
+        async function trackVisit() {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                const ipAddress = data.ip;
+                
+                const geoResponse = await fetch(`https://ipapi.co/${ipAddress}/json/`);
+                const geoData = await geoResponse.json();
+                
+                const visitData = {
+                    ip_address: ipAddress,
+                    country: geoData.country_name || '未知',
+                    region: geoData.region || '未知',
+                    city: geoData.city || '未知',
+                    latitude: geoData.latitude || null,
+                    longitude: geoData.longitude || null,
+                    timezone: geoData.timezone || '未知',
+                    user_agent: navigator.userAgent,
+                    referrer: document.referrer || '直接访问',
+                    page: window.location.pathname,
+                    visit_time: new Date().toISOString()
+                };
+                
+                const { error } = await supabase
+                    .from('visits')
+                    .insert([visitData]);
+                
+                if (error) {
+                    console.error('Failed to track visit:', error);
+                }
+            } catch (error) {
+                console.error('Tracking error:', error);
+            }
+        }
+
+        trackVisit();
 
         function copyiCalLink() {
             navigator.clipboard.writeText(icalLink)
